@@ -1,0 +1,10 @@
+<resources>
+    <color name="background">#07090E</color>
+    <color name="surface">#10151D</color>
+    <color name="surface_alt">#151D27</color>
+    <color name="neon_green">#71FF9A</color>
+    <color name="neon_cyan">#47E7FF</color>
+    <color name="text_primary">#F1F6FA</color>
+    <color name="text_secondary">#91A1AF</color>
+    <color name="danger">#FF647C</color>
+</resources>

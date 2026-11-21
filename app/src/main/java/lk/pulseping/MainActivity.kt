@@ -1,7 +1,6 @@
 package lk.pulseping
 
 import android.Manifest
-import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -9,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.Patterns
 import android.view.View
 import android.widget.AdapterView
@@ -18,8 +18,9 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
     private lateinit var preferences: SharedPreferences
     private lateinit var powerButton: Button
     private lateinit var serviceStatus: TextView
@@ -31,6 +32,7 @@ class MainActivity : Activity() {
     private lateinit var intervalSpinner: Spinner
     private lateinit var customHostInput: EditText
     private var pendingServiceIntent: Intent? = null
+    private var screenInitialized = false
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private val refreshTask = object : Runnable {
@@ -42,27 +44,34 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        try {
+            setContentView(R.layout.activity_main)
 
-        preferences = getSharedPreferences(PingService.PREFERENCES_NAME, MODE_PRIVATE)
-        powerButton = findViewById(R.id.powerButton)
-        serviceStatus = findViewById(R.id.serviceStatus)
-        pingValue = findViewById(R.id.pingValue)
-        jitterValue = findViewById(R.id.jitterValue)
-        lossValue = findViewById(R.id.lossValue)
-        logText = findViewById(R.id.logText)
-        targetSpinner = findViewById(R.id.targetSpinner)
-        intervalSpinner = findViewById(R.id.intervalSpinner)
-        customHostInput = findViewById(R.id.customHostInput)
+            preferences = getSharedPreferences(PingService.PREFERENCES_NAME, MODE_PRIVATE)
+            powerButton = findViewById(R.id.powerButton)
+            serviceStatus = findViewById(R.id.serviceStatus)
+            pingValue = findViewById(R.id.pingValue)
+            jitterValue = findViewById(R.id.jitterValue)
+            lossValue = findViewById(R.id.lossValue)
+            logText = findViewById(R.id.logText)
+            targetSpinner = findViewById(R.id.targetSpinner)
+            intervalSpinner = findViewById(R.id.intervalSpinner)
+            customHostInput = findViewById(R.id.customHostInput)
 
-        configureSpinners()
-        powerButton.setOnClickListener { toggleMonitor() }
-        refreshMonitorState()
+            configureSpinners()
+            powerButton.setOnClickListener { toggleMonitor() }
+            refreshMonitorState()
+            screenInitialized = true
+        } catch (exception: RuntimeException) {
+            Log.e(TAG, "Unable to initialize the main screen", exception)
+            Toast.makeText(this, "PulsePing could not start. Please reinstall the app.", Toast.LENGTH_LONG).show()
+            finish()
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        uiHandler.post(refreshTask)
+        if (screenInitialized) uiHandler.post(refreshTask)
     }
 
     override fun onPause() {
@@ -98,7 +107,13 @@ class MainActivity : Activity() {
 
     private fun toggleMonitor() {
         if (preferences.getBoolean(PingService.KEY_RUNNING, false)) {
-            startService(Intent(this, PingService::class.java).setAction(PingService.ACTION_STOP))
+            try {
+                startService(Intent(this, PingService::class.java).setAction(PingService.ACTION_STOP))
+            } catch (exception: SecurityException) {
+                showServiceStartError(exception)
+            } catch (exception: IllegalStateException) {
+                showServiceStartError(exception)
+            }
             return
         }
 
@@ -113,11 +128,35 @@ class MainActivity : Activity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             pendingServiceIntent = createServiceIntent(targetName, host, intervalSeconds)
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+            try {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+            } catch (exception: SecurityException) {
+                pendingServiceIntent = null
+                showServiceStartError(exception)
+            } catch (exception: IllegalStateException) {
+                pendingServiceIntent = null
+                showServiceStartError(exception)
+            }
             return
         }
 
-        startForegroundService(createServiceIntent(targetName, host, intervalSeconds))
+        startMonitorService(createServiceIntent(targetName, host, intervalSeconds))
+    }
+
+    private fun startMonitorService(serviceIntent: Intent) {
+        try {
+            startForegroundService(serviceIntent)
+        } catch (exception: SecurityException) {
+            showServiceStartError(exception)
+        } catch (exception: IllegalStateException) {
+            showServiceStartError(exception)
+        }
+    }
+
+    private fun showServiceStartError(exception: RuntimeException) {
+        Log.e(TAG, "Unable to start the monitor service", exception)
+        Toast.makeText(this, "Could not start the monitor. Check notification permission and try again.", Toast.LENGTH_LONG)
+            .show()
     }
 
     private fun createServiceIntent(targetName: String, host: String, intervalSeconds: Int): Intent {
@@ -185,8 +224,10 @@ class MainActivity : Activity() {
         if (requestCode == REQUEST_NOTIFICATIONS) {
             val serviceIntent = pendingServiceIntent
             pendingServiceIntent = null
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-                serviceIntent?.let { startForegroundService(it) }
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            ) {
+                serviceIntent?.let { startMonitorService(it) }
             } else {
                 Toast.makeText(this, "Allow notifications to start the persistent monitor.", Toast.LENGTH_LONG)
                     .show()
@@ -195,6 +236,7 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        private const val TAG = "PulsePing"
         private const val REQUEST_NOTIFICATIONS = 1001
         private const val TARGET_CUSTOM = 3
     }

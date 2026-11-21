@@ -1,11 +1,13 @@
 package lk.pulseping
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -13,6 +15,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import java.io.IOException
 import java.net.InetAddress
 import java.text.SimpleDateFormat
@@ -40,19 +43,34 @@ class PingService : Service() {
     private var jitterSamples = 0
     private var jitterAverage: Long? = null
     private var lastPingText: String? = null
+    private var initialized = false
     private val preferences by lazy {
         getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
     }
 
     override fun onCreate() {
         super.onCreate()
-        notificationManager = getSystemService(NotificationManager::class.java)
-        workerThread = HandlerThread("PulsePingProbe").apply { start() }
-        workerHandler = Handler(workerThread.looper)
-        createNotificationChannel()
+        try {
+            notificationManager = checkNotNull(getSystemService(NotificationManager::class.java)) {
+                "Notification service is unavailable"
+            }
+            workerThread = HandlerThread("PulsePingProbe").apply { start() }
+            workerHandler = Handler(workerThread.looper)
+            createNotificationChannel()
+            initialized = true
+        } catch (exception: RuntimeException) {
+            Log.e(TAG, "Unable to initialize the monitor service", exception)
+            if (::workerThread.isInitialized) workerThread.quitSafely()
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!initialized) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
         when (intent?.action) {
             ACTION_STOP -> {
                 stopSelf()
@@ -79,6 +97,14 @@ class PingService : Service() {
         intervalMillis = (intent?.getIntExtra(EXTRA_INTERVAL_SECONDS, 5) ?: 5).coerceIn(2, 10) * 1000L
         paused = false
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w(TAG, "Notification permission is not granted; refusing to start the foreground monitor")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
         preferences.edit()
             .putBoolean(KEY_RUNNING, true)
             .putBoolean(KEY_PAUSED, false)
@@ -89,10 +115,22 @@ class PingService : Service() {
             .putString(KEY_LOG, "")
             .apply()
 
-        startAsForeground()
-        updateNotification()
-        scheduleProbe(0L)
+        try {
+            startAsForeground()
+            updateNotification()
+            scheduleProbe(0L)
+        } catch (exception: SecurityException) {
+            handleStartupFailure(startId, exception)
+        } catch (exception: IllegalStateException) {
+            handleStartupFailure(startId, exception)
+        }
         return START_NOT_STICKY
+    }
+
+    private fun handleStartupFailure(startId: Int, exception: RuntimeException) {
+        Log.e(TAG, "Unable to start the foreground monitor", exception)
+        preferences.edit().putBoolean(KEY_RUNNING, false).putBoolean(KEY_PAUSED, false).apply()
+        stopSelf(startId)
     }
 
     private fun startAsForeground() {
@@ -236,19 +274,26 @@ class PingService : Service() {
 
     override fun onDestroy() {
         paused = true
-        workerHandler.removeCallbacksAndMessages(null)
-        workerThread.quitSafely()
+        if (::workerHandler.isInitialized) workerHandler.removeCallbacksAndMessages(null)
+        if (::workerThread.isInitialized) workerThread.quitSafely()
         preferences.edit()
             .putBoolean(KEY_RUNNING, false)
             .putBoolean(KEY_PAUSED, false)
             .apply()
-        notificationManager.cancel(NOTIFICATION_ID)
+        if (::notificationManager.isInitialized) {
+            try {
+                notificationManager.cancel(NOTIFICATION_ID)
+            } catch (exception: SecurityException) {
+                Log.w(TAG, "Unable to dismiss the monitor notification", exception)
+            }
+        }
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        private const val TAG = "PulsePingService"
         const val PREFERENCES_NAME = "pulseping_monitor"
         const val KEY_RUNNING = "running"
         const val KEY_PAUSED = "paused"

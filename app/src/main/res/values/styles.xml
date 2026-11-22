@@ -1,10 +1,10 @@
 <resources>
     <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/neon_green</item>
-        <item name="colorPrimaryVariant">@color/neon_green</item>
-        <item name="colorSecondary">@color/neon_cyan</item>
+        <item name="colorPrimary">@color/crimson</item>
+        <item name="colorPrimaryVariant">@color/crimson</item>
+        <item name="colorSecondary">@color/neon_green</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">@color/neon_green</item>
+        <item name="android:colorAccent">@color/crimson</item>
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>

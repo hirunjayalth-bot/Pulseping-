@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -11,6 +13,8 @@ import android.os.Looper
 import android.util.Log
 import android.util.Patterns
 import android.view.View
+import android.animation.ValueAnimator
+import android.animation.ObjectAnimator
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -18,6 +22,7 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -28,9 +33,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var jitterValue: TextView
     private lateinit var lossValue: TextView
     private lateinit var logText: TextView
+    private lateinit var alertBanner: TextView
+    private lateinit var pingGraph: PingGraphView
     private lateinit var targetSpinner: Spinner
+    private lateinit var ispSpinner: Spinner
     private lateinit var intervalSpinner: Spinner
     private lateinit var customHostInput: EditText
+    private var currentSignalColor = Color.TRANSPARENT
+    private var colorAnimator: ValueAnimator? = null
+    private var alertAnimator: ObjectAnimator? = null
     private var pendingServiceIntent: Intent? = null
     private var screenInitialized = false
 
@@ -54,11 +65,15 @@ class MainActivity : AppCompatActivity() {
             jitterValue = findViewById(R.id.jitterValue)
             lossValue = findViewById(R.id.lossValue)
             logText = findViewById(R.id.logText)
+            alertBanner = findViewById(R.id.alertBanner)
+            pingGraph = findViewById(R.id.pingGraph)
             targetSpinner = findViewById(R.id.targetSpinner)
+            ispSpinner = findViewById(R.id.ispSpinner)
             intervalSpinner = findViewById(R.id.intervalSpinner)
             customHostInput = findViewById(R.id.customHostInput)
 
             configureSpinners()
+            configureBottomNavigation()
             powerButton.setOnClickListener { toggleMonitor() }
             refreshMonitorState()
             screenInitialized = true
@@ -81,19 +96,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureSpinners() {
         val targets = listOf(
-            "Singapore Gaming Node",
-            "Google DNS (8.8.8.8)",
-            "Cloudflare (1.1.1.1)",
+            "Free Fire SG",
+            "PUBG",
+            "CODM",
             "Custom Host"
         )
+        val isps = listOf("Hutch 4G/5G", "Dialog 4G/5G", "Mobitel 4G/5G", "Airtel 4G", "SLT Fiber")
         val intervals = listOf("Turbo  ·  2 seconds", "Fast  ·  5 seconds", "Balanced  ·  10 seconds")
-        val targetAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, targets).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        val intervalAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, intervals).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
+        val targetAdapter = themedAdapter(targets)
+        val ispAdapter = themedAdapter(isps)
+        val intervalAdapter = themedAdapter(intervals)
         targetSpinner.adapter = targetAdapter
+        ispSpinner.adapter = ispAdapter
         intervalSpinner.adapter = intervalAdapter
 
         targetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -101,6 +115,51 @@ class MainActivity : AppCompatActivity() {
 
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 customHostInput.visibility = if (position == TARGET_CUSTOM) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
+    private fun themedAdapter(items: List<String>): ArrayAdapter<String> {
+        return object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
+            override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                return (super.getView(position, convertView, parent) as TextView).apply {
+                    setTextColor(getColor(R.color.text_primary))
+                    textSize = 14f
+                }
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                return (super.getDropDownView(position, convertView, parent) as TextView).apply {
+                    setTextColor(getColor(R.color.text_primary))
+                    setBackgroundColor(getColor(R.color.surface))
+                    setPadding(16, 14, 16, 14)
+                    textSize = 14f
+                }
+            }
+        }.apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+    }
+
+    private fun configureBottomNavigation() {
+        val scrollView = findViewById<android.widget.ScrollView>(R.id.monitorScroll)
+        val tabs = listOf(
+            R.id.navPinger to findViewById<View>(R.id.powerButton),
+            R.id.navStats to findViewById<View>(R.id.pingGraph),
+            R.id.navTips to findViewById<View>(R.id.logText)
+        )
+        tabs.forEach { (tabId, target) ->
+            findViewById<TextView>(tabId).setOnClickListener {
+                tabs.forEach { (id, _) ->
+                    findViewById<TextView>(id).setTextColor(
+                        getColor(if (id == tabId) R.color.crimson else R.color.text_secondary)
+                    )
+                }
+                val location = IntArray(2)
+                target.getLocationInWindow(location)
+                val scrollLocation = IntArray(2)
+                scrollView.getLocationInWindow(scrollLocation)
+                scrollView.smoothScrollTo(0, scrollView.scrollY + location[1] - scrollLocation[1] - 18)
             }
         }
     }
@@ -168,10 +227,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectedTarget(): Pair<String, String>? {
+        val isp = ispSpinner.selectedItem?.toString() ?: "Network"
         return when (targetSpinner.selectedItemPosition) {
-            0 -> "Singapore Gaming Node" to "sgp-ping.vultr.com"
-            1 -> "Google DNS" to "8.8.8.8"
-            2 -> "Cloudflare" to "1.1.1.1"
+            0 -> "Free Fire SG · $isp" to "sgp-ping.vultr.com"
+            1 -> "PUBG · $isp" to "sgp-ping.vultr.com"
+            2 -> "CODM · $isp" to "sgp-ping.vultr.com"
             TARGET_CUSTOM -> {
                 val host = customHostInput.text.toString().trim().trimEnd('.')
                 val validHost = Patterns.DOMAIN_NAME.matcher(host).matches() ||
@@ -194,24 +254,97 @@ class MainActivity : AppCompatActivity() {
         val jitter = preferences.getString(PingService.KEY_JITTER, null)
         val loss = preferences.getFloat(PingService.KEY_LOSS, 0f)
         val log = preferences.getString(PingService.KEY_LOG, "")
+        val samples = preferences.getString(PingService.KEY_HISTORY, "")
+            .orEmpty()
+            .split(',')
+            .mapNotNull { it.toIntOrNull() }
+        val hasProbe = !log.isNullOrBlank()
+        val highPing = ping?.toLongOrNull()?.let { it > HIGH_PING_MILLIS } ?: false
+        val signalDrop = running && !paused && hasProbe && (ping == null || highPing)
+        val healthy = running && !paused && ping != null && !highPing
+        val targetColor = getColor(if (healthy) R.color.neon_green else if (signalDrop) R.color.danger else R.color.crimson)
 
         serviceStatus.text = when {
-            !running -> "●  MONITOR OFF"
+            signalDrop -> "●  SIGNAL DROP"
+            healthy -> "●  ONLINE"
+            !running -> "●  STANDBY"
             paused -> "●  PAUSED"
-            else -> "●  MONITORING  ·  ${preferences.getString(PingService.KEY_TARGET_NAME, "NODE")}"
+            else -> "●  PROBING"
         }
-        serviceStatus.setTextColor(
-            if (running && !paused) getColor(R.color.neon_green) else getColor(R.color.text_secondary)
-        )
+        serviceStatus.setTextColor(targetColor)
         pingValue.text = ping ?: "--"
+        pingValue.setTextColor(targetColor)
         jitterValue.text = jitter?.let { "$it ms" } ?: "-- ms"
         lossValue.text = "${"%.1f".format(java.util.Locale.US, loss)}%"
         logText.text = log?.takeIf { it.isNotBlank() } ?: "Waiting for monitor to start..."
         powerButton.text = if (running) "STOP" else "START"
         powerButton.contentDescription = if (running) "Stop network monitoring" else "Start network monitoring"
-        powerButton.setBackgroundResource(
-            if (running) R.drawable.power_button_active else R.drawable.power_button
-        )
+        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(targetColor), null, null)
+        pingGraph.setSamples(samples)
+        alertBanner.text = if (ping == null) "SIGNAL DROP / TIMEOUT!" else "SIGNAL DROP / HIGH PING!"
+        updateAlertBanner(signalDrop)
+        animateSignalColor(targetColor)
+    }
+
+    private fun updateAlertBanner(signalDrop: Boolean) {
+        if (signalDrop && alertBanner.visibility != View.VISIBLE) {
+            alertBanner.visibility = View.VISIBLE
+            alertAnimator?.cancel()
+            alertAnimator = ObjectAnimator.ofFloat(alertBanner, View.ALPHA, 1f, 0.3f).apply {
+                duration = ALERT_FLASH_MILLIS
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        } else if (!signalDrop && alertBanner.visibility == View.VISIBLE) {
+            alertAnimator?.cancel()
+            alertAnimator = null
+            alertBanner.alpha = 1f
+            alertBanner.visibility = View.GONE
+        }
+    }
+
+    private fun tintedHeartbeat(color: Int): android.graphics.drawable.Drawable? {
+        val icon = getDrawable(R.drawable.ic_heartbeat)?.mutate() ?: return null
+        DrawableCompat.setTint(icon, color)
+        return icon
+    }
+
+    private fun animateSignalColor(targetColor: Int) {
+        val startColor = if (currentSignalColor == Color.TRANSPARENT) targetColor else currentSignalColor
+        if (startColor == targetColor) {
+            applySignalColor(targetColor)
+            return
+        }
+        colorAnimator?.cancel()
+        colorAnimator = ValueAnimator.ofArgb(startColor, targetColor).apply {
+            duration = COLOR_TRANSITION_MILLIS
+            addUpdateListener { animator ->
+                val color = animator.animatedValue as Int
+                currentSignalColor = color
+                applySignalColor(color)
+            }
+            start()
+        }
+    }
+
+    private fun applySignalColor(color: Int) {
+        currentSignalColor = color
+        powerButton.setTextColor(color)
+        powerButton.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (color == getColor(R.color.neon_green)) 0xFF071A12.toInt() else 0xFF1A080D.toInt())
+            setStroke((3 * resources.displayMetrics.density).toInt(), color)
+        }
+        pingGraph.setSignalColor(color)
+        serviceStatus.setTextColor(color)
+        serviceStatus.background = GradientDrawable().apply {
+            setColor(getColor(R.color.surface))
+            cornerRadius = 12f * resources.displayMetrics.density
+            setStroke((1 * resources.displayMetrics.density).toInt(), color)
+        }
+        pingValue.setTextColor(color)
+        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(color), null, null)
     }
 
     @Suppress("DEPRECATION")
@@ -239,5 +372,8 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "PulsePing"
         private const val REQUEST_NOTIFICATIONS = 1001
         private const val TARGET_CUSTOM = 3
+        private const val HIGH_PING_MILLIS = 220L
+        private const val COLOR_TRANSITION_MILLIS = 260L
+        private const val ALERT_FLASH_MILLIS = 450L
     }
 }

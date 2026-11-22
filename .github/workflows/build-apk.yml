@@ -27,12 +27,15 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+      - name: Generate release keystore
+        run: keytool -genkeypair -v -keystore app/release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias pulseping -storepass pulseping123 -keypass pulseping123 -dname "CN=PulsePing LK, OU=Mobile, O=PulsePing, L=Colombo, S=Western, C=LK"
 
-      - name: Upload APK
+      - name: Build release APK
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Upload signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: PulsePing-LK-Release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/monitorScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:fillViewport="true"
-    android:clipToPadding="false">
+    android:clipToPadding="false"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,41 +14,72 @@
         android:paddingStart="20dp"
         android:paddingTop="18dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="28dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="PULSEPING LK"
-            android:textColor="@color/neon_green"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.18" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="NETWORK MONITOR"
-            android:textColor="@color/text_primary"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/serviceStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:text="●  MONITOR OFF"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+        android:paddingBottom="22dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="❤️  PULSEPING LK"
+                    android:textColor="@color/crimson"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="ESPORTS NETWORK MONITOR"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.14" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/serviceStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/panel_background"
+                android:paddingStart="11dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="11dp"
+                android:paddingBottom="8dp"
+                android:text="●  STANDBY"
+                android:textColor="@color/crimson"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/alertBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
             android:background="@drawable/panel_background"
             android:gravity="center"
+            android:padding="11dp"
+            android:text="SIGNAL DROP / HIGH PING!"
+            android:textColor="@color/danger"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/panel_background"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
             android:padding="18dp">
 
@@ -56,40 +88,40 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textColor="@color/neon_cyan"
-                android:textSize="42sp"
+                android:textColor="@color.crimson"
+                android:textSize="46sp"
                 android:textStyle="bold" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="PING  ·  MS"
+                android:text="LIVE PING  ·  MS"
                 android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                android:letterSpacing="0.14" />
+                android:textSize="10sp"
+                android:letterSpacing="0.16" />
 
             <Button
                 android:id="@+id/powerButton"
-                android:layout_width="176dp"
-                android:layout_height="176dp"
-                android:layout_marginTop="15dp"
+                android:layout_width="152dp"
+                android:layout_height="152dp"
+                android:layout_marginTop="14dp"
                 android:background="@drawable/power_button"
                 android:contentDescription="Start network monitoring"
+                android:drawablePadding="3dp"
                 android:gravity="center"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
                 android:stateListAnimator="@null"
                 android:text="START"
-                android:textColor="@color/neon_green"
-                android:textSize="20sp"
+                android:textColor="@color/crimson"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
                 android:orientation="horizontal">
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -109,14 +141,13 @@
                         android:layout_height="wrap_content"
                         android:text="JITTER"
                         android:textColor="@color/text_secondary"
-                        android:textSize="10sp" />
+                        android:textSize="9sp"
+                        android:letterSpacing="0.12" />
                 </LinearLayout>
-
                 <View
                     android:layout_width="1dp"
-                    android:layout_height="34dp"
-                    android:background="#2A3540" />
-
+                    android:layout_height="32dp"
+                    android:background="@color/border" />
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -136,26 +167,60 @@
                         android:layout_height="wrap_content"
                         android:text="PACKET LOSS"
                         android:textColor="@color/text_secondary"
-                        android:textSize="10sp" />
+                        android:textSize="9sp"
+                        android:letterSpacing="0.12" />
                 </LinearLayout>
             </LinearLayout>
+
+            <lk.pulseping.PingGraphView
+                android:id="@+id/pingGraph"
+                android:layout_width="match_parent"
+                android:layout_height="104dp"
+                android:layout_marginTop="18dp"
+                android:contentDescription="Live ping history graph" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="LIVE ECG PING  ·  LAST 30 PROBES"
+                android:textColor="@color/text_secondary"
+                android:textSize="9sp"
+                android:letterSpacing="0.12" />
         </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="TARGET NODE"
-            android:textColor="@color/neon_cyan"
-            android:textSize="11sp"
+            android:layout_marginTop="20dp"
+            android:text="SRI LANKAN ISP PROFILE"
+            android:textColor="@color.crimson"
+            android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
+        <Spinner
+            android:id="@+id/ispSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="7dp"
+            android:background="@drawable/panel_background"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:popupBackground="@drawable/panel_background" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="GAME TARGET"
+            android:textColor="@color.crimson"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.12" />
         <Spinner
             android:id="@+id/targetSpinner"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="7dp"
             android:background="@drawable/panel_background"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
@@ -164,7 +229,7 @@
         <EditText
             android:id="@+id/customHostInput"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
+            android:layout_height="48dp"
             android:layout_marginTop="8dp"
             android:background="@drawable/panel_background"
             android:hint="Custom hostname or IP address"
@@ -180,18 +245,17 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="14dp"
             android:text="PROBE INTERVAL"
-            android:textColor="@color/neon_cyan"
-            android:textSize="11sp"
+            android:textColor="@color.crimson"
+            android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
-
         <Spinner
             android:id="@+id/intervalSpinner"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="7dp"
             android:background="@drawable/panel_background"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
@@ -200,17 +264,16 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
+            android:layout_marginTop="20dp"
             android:text="LIVE TERMINAL"
-            android:textColor="@color/neon_cyan"
-            android:textSize="11sp"
+            android:textColor="@color.crimson"
+            android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
-
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="160dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="150dp"
+            android:layout_marginTop="7dp"
             android:background="@drawable/panel_background"
             android:fillViewport="true"
             android:padding="12dp">
@@ -227,9 +290,49 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:text="Diagnostic reachability only. This app does not change or optimize game traffic."
+            android:layout_marginTop="12dp"
+            android:text="Diagnostic reachability only. Results depend on your device, network, and destination."
             android:textColor="@color/text_secondary"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
+
+        <LinearLayout
+            android:id="@+id/bottomNavigation"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/panel_background"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/navPinger"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="PINGER"
+                android:textColor="@color.crimson"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/navStats"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="STATS"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/navTips"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="TIPS"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

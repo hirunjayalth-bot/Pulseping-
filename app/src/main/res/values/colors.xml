@@ -1,10 +1,12 @@
 <resources>
-    <color name="background">#07090E</color>
-    <color name="surface">#10151D</color>
-    <color name="surface_alt">#151D27</color>
-    <color name="neon_green">#71FF9A</color>
-    <color name="neon_cyan">#47E7FF</color>
+    <color name="background">#080305</color>
+    <color name="surface">#13070B</color>
+    <color name="surface_alt">#1C0A10</color>
+    <color name="border">#3B121E</color>
+    <color name="crimson">#FF1E42</color>
+    <color name="neon_green">#00E676</color>
+    <color name="neon_cyan">#FF526A</color>
     <color name="text_primary">#F1F6FA</color>
-    <color name="text_secondary">#91A1AF</color>
-    <color name="danger">#FF647C</color>
+    <color name="text_secondary">#A9949A</color>
+    <color name="danger">#FF1744</color>
 </resources>

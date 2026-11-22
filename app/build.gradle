@@ -7,6 +7,15 @@ android {
     namespace 'lk.pulseping'
     compileSdk 35
 
+    signingConfigs {
+        release {
+            storeFile file('release.jks')
+            storePassword 'pulseping123'
+            keyAlias 'pulseping'
+            keyPassword 'pulseping123'
+        }
+    }
+
     defaultConfig {
         applicationId 'lk.pulseping'
         minSdk 26
@@ -22,6 +31,14 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+        }
     }
 }
 

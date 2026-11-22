@@ -113,6 +113,7 @@ class PingService : Service() {
             .putString(KEY_JITTER, null)
             .putFloat(KEY_LOSS, 0f)
             .putString(KEY_LOG, "")
+            .putString(KEY_HISTORY, "")
             .apply()
 
         try {
@@ -186,6 +187,13 @@ class PingService : Service() {
             lastPingText = null
             "[$timestamp]  $host  TIMEOUT"
         }
+        val history = preferences.getString(KEY_HISTORY, "")
+            .orEmpty()
+            .split(',')
+            .filter { it.isNotBlank() }
+            .toMutableList()
+        history.add(if (reachable) lastPingText.orEmpty() else "-1")
+        while (history.size > MAX_HISTORY_SAMPLES) history.removeAt(0)
 
         recentLines.addLast(line)
         while (recentLines.size > MAX_LOG_LINES) recentLines.removeFirst()
@@ -196,6 +204,7 @@ class PingService : Service() {
             .putString(KEY_JITTER, jitterAverage?.toString())
             .putFloat(KEY_LOSS, packetLoss)
             .putString(KEY_LOG, recentLines.joinToString("\n"))
+            .putString(KEY_HISTORY, history.joinToString(","))
             .apply()
     }
 
@@ -208,18 +217,20 @@ class PingService : Service() {
         val ping = preferences.getString(KEY_PING, null)
         val loss = preferences.getFloat(KEY_LOSS, 0f)
         val hasProbe = !preferences.getString(KEY_LOG, "").isNullOrBlank()
+        val highPing = ping?.toLongOrNull()?.let { it > HIGH_PING_MILLIS } ?: false
         val state = when {
             isPaused -> "Paused"
-            loss >= UNSTABLE_LOSS_PERCENT -> "Unstable · ${loss.toInt()}% loss"
             !hasProbe -> "Waiting for first probe"
-            ping == null -> "No response · ${loss.toInt()}% loss"
+            ping == null -> "SIGNAL DROP / TIMEOUT!"
+            highPing -> "SIGNAL DROP / HIGH PING! · $ping ms"
+            loss >= UNSTABLE_LOSS_PERCENT -> "Stable · $ping ms · ${loss.toInt()}% session loss"
             else -> "Stable · $ping ms"
         }
         val toggleAction = if (isPaused) ACTION_RESUME else ACTION_PAUSE
         val toggleLabel = if (isPaused) "RESUME" else "PAUSE"
 
         return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("PulsePing LK · $targetName")
             .setContentText(state)
             .setStyle(Notification.BigTextStyle().bigText("$state · $host"))
@@ -302,6 +313,7 @@ class PingService : Service() {
         const val KEY_JITTER = "jitter"
         const val KEY_LOSS = "loss"
         const val KEY_LOG = "log"
+        const val KEY_HISTORY = "ping_history"
 
         const val EXTRA_TARGET_NAME = "target_name"
         const val EXTRA_HOST = "host"
@@ -315,6 +327,8 @@ class PingService : Service() {
         private const val NOTIFICATION_ID = 2417
         private const val PROBE_TIMEOUT_MILLIS = 1500L
         private const val MAX_LOG_LINES = 12
+        private const val MAX_HISTORY_SAMPLES = 30
+        private const val HIGH_PING_MILLIS = 220L
         private const val UNSTABLE_LOSS_PERCENT = 20f
     }
 }

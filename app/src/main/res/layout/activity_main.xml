@@ -89,7 +89,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textColor="@color.crimson"
+                android:textColor="@color/crimson"
                 android:textSize="46sp"
                 android:textStyle="bold" />
             <TextView
@@ -194,7 +194,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="NETWORK TARGET"
-            android:textColor="@color.crimson"
+            android:textColor="@color/crimson"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
@@ -204,7 +204,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:text="PRESET OR CUSTOM HOST"
-            android:textColor="@color.crimson"
+            android:textColor="@color/crimson"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
@@ -239,7 +239,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:text="PROBE INTERVAL"
-            android:textColor="@color.crimson"
+            android:textColor="@color/crimson"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
@@ -258,7 +258,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="LIVE TERMINAL"
-            android:textColor="@color.crimson"
+            android:textColor="@color/crimson"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.12" />
@@ -302,7 +302,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="MONITOR"
-                android:textColor="@color.crimson"
+                android:textColor="@color/crimson"
                 android:textSize="10sp"
                 android:textStyle="bold" />
             <TextView

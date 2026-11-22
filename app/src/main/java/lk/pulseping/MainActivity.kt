@@ -36,7 +36,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var alertBanner: TextView
     private lateinit var pingGraph: PingGraphView
     private lateinit var targetSpinner: Spinner
-    private lateinit var ispSpinner: Spinner
     private lateinit var intervalSpinner: Spinner
     private lateinit var customHostInput: EditText
     private var currentSignalColor = Color.TRANSPARENT
@@ -68,7 +67,6 @@ class MainActivity : AppCompatActivity() {
             alertBanner = findViewById(R.id.alertBanner)
             pingGraph = findViewById(R.id.pingGraph)
             targetSpinner = findViewById(R.id.targetSpinner)
-            ispSpinner = findViewById(R.id.ispSpinner)
             intervalSpinner = findViewById(R.id.intervalSpinner)
             customHostInput = findViewById(R.id.customHostInput)
 
@@ -96,18 +94,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureSpinners() {
         val targets = listOf(
-            "Free Fire SG",
-            "PUBG",
-            "CODM",
-            "Custom Host"
+            "Cloudflare DNS  ·  1.1.1.1",
+            "Google DNS  ·  8.8.8.8",
+            "Custom host"
         )
-        val isps = listOf("Hutch 4G/5G", "Dialog 4G/5G", "Mobitel 4G/5G", "Airtel 4G", "SLT Fiber")
-        val intervals = listOf("Turbo  ·  2 seconds", "Fast  ·  5 seconds", "Balanced  ·  10 seconds")
+        val intervals = listOf("Fast  ·  2 seconds", "Balanced  ·  5 seconds", "Relaxed  ·  10 seconds")
         val targetAdapter = themedAdapter(targets)
-        val ispAdapter = themedAdapter(isps)
         val intervalAdapter = themedAdapter(intervals)
         targetSpinner.adapter = targetAdapter
-        ispSpinner.adapter = ispAdapter
         intervalSpinner.adapter = intervalAdapter
 
         targetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -146,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         val tabs = listOf(
             R.id.navPinger to findViewById<View>(R.id.powerButton),
             R.id.navStats to findViewById<View>(R.id.pingGraph),
-            R.id.navTips to findViewById<View>(R.id.logText)
+            R.id.navLogs to findViewById<View>(R.id.logText)
         )
         tabs.forEach { (tabId, target) ->
             findViewById<TextView>(tabId).setOnClickListener {
@@ -227,11 +221,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun selectedTarget(): Pair<String, String>? {
-        val isp = ispSpinner.selectedItem?.toString() ?: "Network"
         return when (targetSpinner.selectedItemPosition) {
-            0 -> "Free Fire SG · $isp" to "sgp-ping.vultr.com"
-            1 -> "PUBG · $isp" to "sgp-ping.vultr.com"
-            2 -> "CODM · $isp" to "sgp-ping.vultr.com"
+            0 -> "Cloudflare DNS" to "1.1.1.1"
+            1 -> "Google DNS" to "8.8.8.8"
             TARGET_CUSTOM -> {
                 val host = customHostInput.text.toString().trim().trimEnd('.')
                 val validHost = Patterns.DOMAIN_NAME.matcher(host).matches() ||
@@ -265,7 +257,7 @@ class MainActivity : AppCompatActivity() {
         val targetColor = getColor(if (healthy) R.color.neon_green else if (signalDrop) R.color.danger else R.color.crimson)
 
         serviceStatus.text = when {
-            signalDrop -> "●  SIGNAL DROP"
+            signalDrop -> "●  CONNECTION ISSUE"
             healthy -> "●  ONLINE"
             !running -> "●  STANDBY"
             paused -> "●  PAUSED"
@@ -281,7 +273,7 @@ class MainActivity : AppCompatActivity() {
         powerButton.contentDescription = if (running) "Stop network monitoring" else "Start network monitoring"
         powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(targetColor), null, null)
         pingGraph.setSamples(samples)
-        alertBanner.text = if (ping == null) "SIGNAL DROP / TIMEOUT!" else "SIGNAL DROP / HIGH PING!"
+        alertBanner.text = if (ping == null) "HOST NOT RESPONDING" else "HIGH RESPONSE TIME"
         updateAlertBanner(signalDrop)
         animateSignalColor(targetColor)
     }
@@ -371,7 +363,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "PulsePing"
         private const val REQUEST_NOTIFICATIONS = 1001
-        private const val TARGET_CUSTOM = 3
+        private const val TARGET_CUSTOM = 2
         private const val HIGH_PING_MILLIS = 220L
         private const val COLOR_TRANSITION_MILLIS = 260L
         private const val ALERT_FLASH_MILLIS = 450L

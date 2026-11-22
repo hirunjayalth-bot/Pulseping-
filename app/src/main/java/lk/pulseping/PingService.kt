@@ -221,9 +221,9 @@ class PingService : Service() {
         val state = when {
             isPaused -> "Paused"
             !hasProbe -> "Waiting for first probe"
-            ping == null -> "SIGNAL DROP / TIMEOUT!"
-            highPing -> "SIGNAL DROP / HIGH PING! · $ping ms"
-            loss >= UNSTABLE_LOSS_PERCENT -> "Stable · $ping ms · ${loss.toInt()}% session loss"
+            ping == null -> "Host not responding"
+            highPing -> "High response time · $ping ms"
+            loss >= UNSTABLE_LOSS_PERCENT -> "Unstable · $ping ms · ${loss.toInt()}% session loss"
             else -> "Stable · $ping ms"
         }
         val toggleAction = if (isPaused) ACTION_RESUME else ACTION_PAUSE
@@ -231,7 +231,7 @@ class PingService : Service() {
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("PulsePing LK · $targetName")
+            .setContentTitle("PulsePing · $targetName")
             .setContentText(state)
             .setStyle(Notification.BigTextStyle().bigText("$state · $host"))
             .setOngoing(true)

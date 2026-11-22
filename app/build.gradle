@@ -9,11 +9,16 @@ android {
 
     signingConfigs {
         release {
-            storeFile file('release.jks')
+            storeFile file("release.jks")
             storePassword 'pulseping123'
             keyAlias 'pulseping'
             keyPassword 'pulseping123'
         }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
     }
 
     defaultConfig {

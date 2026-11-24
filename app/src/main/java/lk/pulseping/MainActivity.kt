@@ -26,8 +26,11 @@ import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.appcompat.app.AppCompatActivity
+import com.startapp.sdk.adsbase.Ad
 import com.startapp.sdk.adsbase.StartAppAd
 import com.startapp.sdk.adsbase.StartAppSDK
+import com.startapp.sdk.adsbase.adlisteners.AdDisplayListener
+import com.startapp.sdk.adsbase.adlisteners.AdEventListener
 
 class MainActivity : AppCompatActivity() {
     private lateinit var preferences: SharedPreferences
@@ -54,6 +57,9 @@ class MainActivity : AppCompatActivity() {
     private var alertAnimator: ObjectAnimator? = null
     private var pendingServiceIntent: Intent? = null
     private var screenInitialized = false
+    private var isInterstitialReady = false
+    private var isInterstitialLoading = false
+    private var lastAdShownTime = 0L
 
     private val uiHandler = Handler(Looper.getMainLooper())
     private val refreshTask = object : Runnable {
@@ -69,7 +75,9 @@ class MainActivity : AppCompatActivity() {
             StartAppSDK.initParams(this, START_APP_ID).setReturnAdsEnabled(false).init()
             StartAppSDK.setTestAdsEnabled(false)
             startAppAd = StartAppAd(this)
-            startAppAd.loadAd()
+            lastAdShownTime = getPreferences(MODE_PRIVATE)
+                .getLong(KEY_LAST_START_APP_AD, 0L)
+            loadNextInterstitial()
             setContentView(R.layout.activity_main)
 
             val rootContainer = findViewById<View>(R.id.rootContainer)
@@ -217,17 +225,49 @@ class MainActivity : AppCompatActivity() {
                 getColor(if (index == tab) R.color.crimson else R.color.text_secondary)
             )
         }
-        if (tab == TAB_SENSI || tab == TAB_TOOLS) maybeShowInterstitial()
+        if (tab == TAB_SENSI || tab == TAB_TOOLS) maybeShowTabAd()
     }
 
-    private fun maybeShowInterstitial() {
+    private fun maybeShowTabAd() {
         val now = System.currentTimeMillis()
-        val lastShown = getPreferences(MODE_PRIVATE).getLong(KEY_LAST_START_APP_AD, 0L)
-        if (now - lastShown < INTERSTITIAL_COOLDOWN_MILLIS) return
+        if (isInterstitialReady && now - lastAdShownTime >= INTERSTITIAL_COOLDOWN_MILLIS) {
+            startAppAd.showAd(object : AdDisplayListener {
+                override fun adHidden(ad: Ad) {
+                    loadNextInterstitial()
+                }
 
-        startAppAd.showAd()
-        startAppAd.loadAd()
-        getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_START_APP_AD, now).apply()
+                override fun adDisplayed(ad: Ad) = Unit
+
+                override fun adClicked(ad: Ad) = Unit
+
+                override fun adNotDisplayed(ad: Ad) {
+                    loadNextInterstitial()
+                }
+            })
+            isInterstitialReady = false
+            lastAdShownTime = now
+            getPreferences(MODE_PRIVATE).edit()
+                .putLong(KEY_LAST_START_APP_AD, now)
+                .apply()
+        } else if (!isInterstitialReady) {
+            loadNextInterstitial()
+        }
+    }
+
+    private fun loadNextInterstitial() {
+        if (isInterstitialReady || isInterstitialLoading) return
+        isInterstitialLoading = true
+        startAppAd.loadAd(StartAppAd.AdMode.AUTOMATIC, object : AdEventListener {
+            override fun onReceiveAd(ad: Ad) {
+                isInterstitialReady = true
+                isInterstitialLoading = false
+            }
+
+            override fun onFailedToReceiveAd(ad: Ad?) {
+                isInterstitialReady = false
+                isInterstitialLoading = false
+            }
+        })
     }
 
     private fun toggleMonitor() {

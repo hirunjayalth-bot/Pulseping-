@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             StartAppSDK.initParams(this, START_APP_ID).setReturnAdsEnabled(false).init()
-            StartAppSDK.setTestAdsEnabled(false)
+            StartAppSDK.setTestAdsEnabled(BuildConfig.DEBUG)
             startAppAd = StartAppAd(this)
             lastAdShownTime = getPreferences(MODE_PRIVATE)
                 .getLong(KEY_LAST_START_APP_AD, 0L)
@@ -107,6 +107,7 @@ class MainActivity : AppCompatActivity() {
             customHostInput = findViewById(R.id.customHostInput)
             pulseRadar = findViewById(R.id.pulseRadar)
             bannerAd = findViewById(R.id.startAppBanner)
+            bannerAd.visibility = View.GONE
             tabContent = findViewById(R.id.tabContent)
 
             configureSpinners()
@@ -225,6 +226,7 @@ class MainActivity : AppCompatActivity() {
                 getColor(if (index == tab) R.color.crimson else R.color.text_secondary)
             )
         }
+        bannerAd.visibility = if (tab == TAB_PINGER) View.GONE else View.VISIBLE
         if (tab == TAB_SENSI || tab == TAB_TOOLS) maybeShowTabAd()
     }
 
@@ -236,7 +238,12 @@ class MainActivity : AppCompatActivity() {
                     loadNextInterstitial()
                 }
 
-                override fun adDisplayed(ad: Ad) = Unit
+                override fun adDisplayed(ad: Ad) {
+                    lastAdShownTime = System.currentTimeMillis()
+                    getPreferences(MODE_PRIVATE).edit()
+                        .putLong(KEY_LAST_START_APP_AD, lastAdShownTime)
+                        .apply()
+                }
 
                 override fun adClicked(ad: Ad) = Unit
 
@@ -245,10 +252,6 @@ class MainActivity : AppCompatActivity() {
                 }
             })
             isInterstitialReady = false
-            lastAdShownTime = now
-            getPreferences(MODE_PRIVATE).edit()
-                .putLong(KEY_LAST_START_APP_AD, now)
-                .apply()
         } else if (!isInterstitialReady) {
             loadNextInterstitial()
         }
@@ -259,13 +262,20 @@ class MainActivity : AppCompatActivity() {
         isInterstitialLoading = true
         startAppAd.loadAd(StartAppAd.AdMode.AUTOMATIC, object : AdEventListener {
             override fun onReceiveAd(ad: Ad) {
-                isInterstitialReady = true
-                isInterstitialLoading = false
+                runOnUiThread {
+                    isInterstitialReady = true
+                    isInterstitialLoading = false
+                    if (selectedTab == TAB_SENSI || selectedTab == TAB_TOOLS) {
+                        maybeShowTabAd()
+                    }
+                }
             }
 
             override fun onFailedToReceiveAd(ad: Ad?) {
-                isInterstitialReady = false
-                isInterstitialLoading = false
+                runOnUiThread {
+                    isInterstitialReady = false
+                    isInterstitialLoading = false
+                }
             }
         })
     }

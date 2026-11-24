@@ -49,12 +49,12 @@ class PingTileService : TileService() {
             label = "PulsePing"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val paused = preferences.getBoolean(PingService.KEY_PAUSED, false)
-                val ping = preferences.getString(PingService.KEY_PING, null)
+                val lastPingMs = preferences.getLong(PingService.KEY_LAST_PING_MS, -1L)
                 subtitle = when {
-                    !running -> "Monitor off"
+                    !running -> "OFF"
                     paused -> "Paused"
-                    ping != null -> "$ping ms"
-                    else -> "Starting…"
+                    lastPingMs >= 0L -> "$lastPingMs ms"
+                    else -> "No response"
                 }
             }
             updateTile()

@@ -23,6 +23,8 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdView
@@ -71,6 +73,19 @@ class MainActivity : AppCompatActivity() {
         try {
             setContentView(R.layout.activity_main)
 
+            val rootContainer = findViewById<View>(R.id.rootContainer)
+            ViewCompat.setOnApplyWindowInsetsListener(rootContainer) { view, windowInsets ->
+                val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+                view.setPadding(
+                    view.paddingLeft,
+                    systemBars.top,
+                    view.paddingRight,
+                    systemBars.bottom
+                )
+                windowInsets
+            }
+            ViewCompat.requestApplyInsets(rootContainer)
+
             preferences = getSharedPreferences(PingService.PREFERENCES_NAME, MODE_PRIVATE)
             powerButton = findViewById(R.id.powerButton)
             serviceStatus = findViewById(R.id.serviceStatus)
@@ -117,14 +132,12 @@ class MainActivity : AppCompatActivity() {
         if (screenInitialized) {
             bannerAd.pause()
             pulseRadar.setActive(false)
-            suitePages.pauseGames()
         }
         super.onPause()
     }
 
     override fun onDestroy() {
         if (::bannerAd.isInitialized) bannerAd.destroy()
-        if (::suitePages.isInitialized) suitePages.stopAnimations()
         super.onDestroy()
     }
 
@@ -176,14 +189,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureBottomNavigation() {
         bannerAd.visibility = View.GONE
-        suitePages = SuitePages(this, ::setCrosshairOverlay)
+        suitePages = SuitePages(this)
         tabContent.addView(suitePages.sensiPage)
-        tabContent.addView(suitePages.aimPage)
         tabContent.addView(suitePages.toolsPage)
         listOf(
             R.id.navPinger to TAB_PINGER,
             R.id.navSensi to TAB_SENSI,
-            R.id.navAim to TAB_AIM,
             R.id.navTools to TAB_TOOLS
         ).forEach { (viewId, tab) ->
             findViewById<TextView>(viewId).setOnClickListener { selectTab(tab) }
@@ -196,7 +207,6 @@ class MainActivity : AppCompatActivity() {
         val pages = listOf(
             findViewById<View>(R.id.monitorScroll),
             suitePages.sensiPage,
-            suitePages.aimPage,
             suitePages.toolsPage
         )
         pages.forEachIndexed { index, page ->
@@ -208,7 +218,7 @@ class MainActivity : AppCompatActivity() {
                 page.animate().alpha(1f).translationY(0f).setDuration(180L).start()
             }
         }
-        listOf(R.id.navPinger, R.id.navSensi, R.id.navAim, R.id.navTools).forEachIndexed { index, id ->
+        listOf(R.id.navPinger, R.id.navSensi, R.id.navTools).forEachIndexed { index, id ->
             findViewById<TextView>(id).setTextColor(
                 getColor(if (index == tab) R.color.crimson else R.color.text_secondary)
             )
@@ -262,35 +272,6 @@ class MainActivity : AppCompatActivity() {
         }
         ad.show(this)
         getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_INTERSTITIAL, now).apply()
-    }
-
-    private fun setCrosshairOverlay(enabled: Boolean, style: String, color: Int, size: Int): Boolean {
-        if (!enabled) {
-            startService(Intent(this, CrosshairOverlayService::class.java).setAction(CrosshairOverlayService.ACTION_STOP))
-            return true
-        }
-        if (!android.provider.Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Allow PulsePing to display the crosshair over other apps.", Toast.LENGTH_LONG).show()
-            startActivity(
-                Intent(
-                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    android.net.Uri.parse("package:$packageName")
-                )
-            )
-            return false
-        }
-        return try {
-            startService(Intent(this, CrosshairOverlayService::class.java).apply {
-                putExtra(CrosshairOverlayService.EXTRA_STYLE, style)
-                putExtra(CrosshairOverlayService.EXTRA_COLOR, color)
-                putExtra(CrosshairOverlayService.EXTRA_SIZE, size)
-            })
-            true
-        } catch (exception: SecurityException) {
-            android.util.Log.e(TAG, "Unable to show crosshair overlay", exception)
-            Toast.makeText(this, "PulsePing could not show the crosshair overlay.", Toast.LENGTH_LONG).show()
-            false
-        }
     }
 
     private fun toggleMonitor() {
@@ -527,8 +508,7 @@ class MainActivity : AppCompatActivity() {
         private const val TARGET_CUSTOM = 5
         private const val TAB_PINGER = 0
         private const val TAB_SENSI = 1
-        private const val TAB_AIM = 2
-        private const val TAB_TOOLS = 3
+        private const val TAB_TOOLS = 2
         private const val KEY_LAST_INTERSTITIAL = "last_interstitial_shown_at"
         private const val INTERSTITIAL_COOLDOWN_MILLIS = 45_000L
         private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/8691691433"

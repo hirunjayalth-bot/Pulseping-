@@ -73,6 +73,11 @@ class PingService : Service() {
 
         when (intent?.action) {
             ACTION_STOP -> {
+                preferences.edit()
+                    .putBoolean(KEY_RUNNING, false)
+                    .putBoolean(KEY_PAUSED, false)
+                    .apply()
+                PingTileService.requestRefresh(this)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -114,6 +119,7 @@ class PingService : Service() {
             .putString(KEY_HOST, host)
             .putInt(KEY_INTERVAL_SECONDS, (intervalMillis / 1000L).toInt())
             .putString(KEY_PING, null)
+            .putLong(KEY_LAST_PING_MS, -1L)
             .putString(KEY_JITTER, null)
             .putFloat(KEY_LOSS, 0f)
             .putString(KEY_LOG, "")
@@ -136,6 +142,7 @@ class PingService : Service() {
     private fun handleStartupFailure(startId: Int, exception: RuntimeException) {
         Log.e(TAG, "Unable to start the foreground monitor", exception)
         preferences.edit().putBoolean(KEY_RUNNING, false).putBoolean(KEY_PAUSED, false).apply()
+        PingTileService.requestRefresh(this)
         stopSelf(startId)
     }
 
@@ -207,6 +214,7 @@ class PingService : Service() {
         val packetLoss = failedCount * 100f / sampleCount
         preferences.edit()
             .putString(KEY_PING, lastPingText)
+            .putLong(KEY_LAST_PING_MS, lastPingText?.toLongOrNull() ?: -1L)
             .putString(KEY_JITTER, jitterAverage?.toString())
             .putFloat(KEY_LOSS, packetLoss)
             .putString(KEY_LOG, recentLines.joinToString("\n"))
@@ -313,12 +321,13 @@ class PingService : Service() {
     companion object {
         private const val TAG = "PulsePingService"
         const val PREFERENCES_NAME = "pulseping_monitor"
-        const val KEY_RUNNING = "running"
+        const val KEY_RUNNING = "isRunning"
         const val KEY_PAUSED = "paused"
         const val KEY_TARGET_NAME = "target_name"
         const val KEY_HOST = "host"
         const val KEY_INTERVAL_SECONDS = "interval_seconds"
         const val KEY_PING = "ping"
+        const val KEY_LAST_PING_MS = "lastPingMs"
         const val KEY_JITTER = "jitter"
         const val KEY_LOSS = "loss"
         const val KEY_LOG = "log"

@@ -81,12 +81,14 @@ class PingService : Service() {
                 workerHandler.removeCallbacksAndMessages(null)
                 preferences.edit().putBoolean(KEY_PAUSED, true).apply()
                 updateNotification()
+                PingTileService.requestRefresh(this)
                 return START_NOT_STICKY
             }
             ACTION_RESUME -> {
                 paused = false
                 preferences.edit().putBoolean(KEY_PAUSED, false).apply()
                 updateNotification()
+                PingTileService.requestRefresh(this)
                 scheduleProbe(0L)
                 return START_NOT_STICKY
             }
@@ -109,6 +111,8 @@ class PingService : Service() {
             .putBoolean(KEY_RUNNING, true)
             .putBoolean(KEY_PAUSED, false)
             .putString(KEY_TARGET_NAME, targetName)
+            .putString(KEY_HOST, host)
+            .putInt(KEY_INTERVAL_SECONDS, (intervalMillis / 1000L).toInt())
             .putString(KEY_PING, null)
             .putString(KEY_JITTER, null)
             .putFloat(KEY_LOSS, 0f)
@@ -119,6 +123,7 @@ class PingService : Service() {
         try {
             startAsForeground()
             updateNotification()
+            PingTileService.requestRefresh(this)
             scheduleProbe(0L)
         } catch (exception: SecurityException) {
             handleStartupFailure(startId, exception)
@@ -162,6 +167,7 @@ class PingService : Service() {
                 if (!paused) {
                     recordProbe(reachable, elapsed)
                     mainHandler.post { updateNotification() }
+                    PingTileService.requestRefresh(this@PingService)
                     workerHandler.postDelayed(this, intervalMillis)
                 }
             }
@@ -291,6 +297,7 @@ class PingService : Service() {
             .putBoolean(KEY_RUNNING, false)
             .putBoolean(KEY_PAUSED, false)
             .apply()
+        PingTileService.requestRefresh(this)
         if (::notificationManager.isInitialized) {
             try {
                 notificationManager.cancel(NOTIFICATION_ID)
@@ -309,6 +316,8 @@ class PingService : Service() {
         const val KEY_RUNNING = "running"
         const val KEY_PAUSED = "paused"
         const val KEY_TARGET_NAME = "target_name"
+        const val KEY_HOST = "host"
+        const val KEY_INTERVAL_SECONDS = "interval_seconds"
         const val KEY_PING = "ping"
         const val KEY_JITTER = "jitter"
         const val KEY_LOSS = "loss"

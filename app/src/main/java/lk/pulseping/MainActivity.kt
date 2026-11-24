@@ -24,6 +24,13 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 class MainActivity : AppCompatActivity() {
     private lateinit var preferences: SharedPreferences
@@ -38,6 +45,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var targetSpinner: Spinner
     private lateinit var intervalSpinner: Spinner
     private lateinit var customHostInput: EditText
+    private lateinit var pulseRadar: PulseRadarView
+    private lateinit var bannerAd: AdView
+    private lateinit var tabContent: android.widget.FrameLayout
+    private lateinit var suitePages: SuitePages
+    private var interstitialAd: InterstitialAd? = null
+    private var selectedTab = TAB_PINGER
+    private var lastAnimatedPing: String? = null
     private var currentSignalColor = Color.TRANSPARENT
     private var colorAnimator: ValueAnimator? = null
     private var alertAnimator: ObjectAnimator? = null
@@ -69,10 +83,20 @@ class MainActivity : AppCompatActivity() {
             targetSpinner = findViewById(R.id.targetSpinner)
             intervalSpinner = findViewById(R.id.intervalSpinner)
             customHostInput = findViewById(R.id.customHostInput)
+            pulseRadar = findViewById(R.id.pulseRadar)
+            bannerAd = findViewById(R.id.bannerAd)
+            tabContent = findViewById(R.id.tabContent)
 
             configureSpinners()
             configureBottomNavigation()
-            powerButton.setOnClickListener { toggleMonitor() }
+            configureAds()
+            powerButton.setOnClickListener {
+                it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                it.animate().scaleX(0.94f).scaleY(0.94f).setDuration(65L).withEndAction {
+                    it.animate().scaleX(1f).scaleY(1f).setDuration(150L).start()
+                }.start()
+                toggleMonitor()
+            }
             refreshMonitorState()
             screenInitialized = true
         } catch (exception: RuntimeException) {
@@ -84,18 +108,33 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (screenInitialized) bannerAd.resume()
         if (screenInitialized) uiHandler.post(refreshTask)
     }
 
     override fun onPause() {
         uiHandler.removeCallbacks(refreshTask)
+        if (screenInitialized) {
+            bannerAd.pause()
+            pulseRadar.setActive(false)
+            suitePages.pauseGames()
+        }
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        if (::bannerAd.isInitialized) bannerAd.destroy()
+        if (::suitePages.isInitialized) suitePages.stopAnimations()
+        super.onDestroy()
     }
 
     private fun configureSpinners() {
         val targets = listOf(
-            "Cloudflare DNS  ·  1.1.1.1",
-            "Google DNS  ·  8.8.8.8",
+            "Free Fire Server  ·  ff.garena.com",
+            "PUBG Mobile Node  ·  sgp-1.valve.net",
+            "Hutch 4G/5G Stabilizer  ·  1.1.1.1",
+            "Dialog 4G/5G Stabilizer  ·  8.8.8.8",
+            "Mobitel 4G/5G Stabilizer  ·  9.9.9.9",
             "Custom host"
         )
         val intervals = listOf("Fast  ·  2 seconds", "Balanced  ·  5 seconds", "Relaxed  ·  10 seconds")
@@ -136,25 +175,121 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configureBottomNavigation() {
-        val scrollView = findViewById<android.widget.ScrollView>(R.id.monitorScroll)
-        val tabs = listOf(
-            R.id.navPinger to findViewById<View>(R.id.powerButton),
-            R.id.navStats to findViewById<View>(R.id.pingGraph),
-            R.id.navLogs to findViewById<View>(R.id.logText)
+        bannerAd.visibility = View.GONE
+        suitePages = SuitePages(this, ::setCrosshairOverlay)
+        tabContent.addView(suitePages.sensiPage)
+        tabContent.addView(suitePages.aimPage)
+        tabContent.addView(suitePages.toolsPage)
+        listOf(
+            R.id.navPinger to TAB_PINGER,
+            R.id.navSensi to TAB_SENSI,
+            R.id.navAim to TAB_AIM,
+            R.id.navTools to TAB_TOOLS
+        ).forEach { (viewId, tab) ->
+            findViewById<TextView>(viewId).setOnClickListener { selectTab(tab) }
+        }
+    }
+
+    private fun selectTab(tab: Int) {
+        if (selectedTab == tab) return
+        selectedTab = tab
+        val pages = listOf(
+            findViewById<View>(R.id.monitorScroll),
+            suitePages.sensiPage,
+            suitePages.aimPage,
+            suitePages.toolsPage
         )
-        tabs.forEach { (tabId, target) ->
-            findViewById<TextView>(tabId).setOnClickListener {
-                tabs.forEach { (id, _) ->
-                    findViewById<TextView>(id).setTextColor(
-                        getColor(if (id == tabId) R.color.crimson else R.color.text_secondary)
-                    )
-                }
-                val location = IntArray(2)
-                target.getLocationInWindow(location)
-                val scrollLocation = IntArray(2)
-                scrollView.getLocationInWindow(scrollLocation)
-                scrollView.smoothScrollTo(0, scrollView.scrollY + location[1] - scrollLocation[1] - 18)
+        pages.forEachIndexed { index, page ->
+            val selected = index == tab
+            page.visibility = if (selected) View.VISIBLE else View.GONE
+            if (selected) {
+                page.alpha = 0f
+                page.translationY = 9f * resources.displayMetrics.density
+                page.animate().alpha(1f).translationY(0f).setDuration(180L).start()
             }
+        }
+        listOf(R.id.navPinger, R.id.navSensi, R.id.navAim, R.id.navTools).forEachIndexed { index, id ->
+            findViewById<TextView>(id).setTextColor(
+                getColor(if (index == tab) R.color.crimson else R.color.text_secondary)
+            )
+        }
+        bannerAd.visibility = if (tab == TAB_PINGER) View.GONE else View.VISIBLE
+
+        if (tab != TAB_PINGER) maybeShowInterstitial()
+    }
+
+    private fun configureAds() {
+        MobileAds.initialize(this)
+        bannerAd.loadAd(AdRequest.Builder().build())
+        loadInterstitialAd()
+    }
+
+    private fun loadInterstitialAd() {
+        // TODO: Replace with real AdMob Interstitial Video Unit ID
+        InterstitialAd.load(
+            this,
+            TEST_INTERSTITIAL_AD_UNIT_ID,
+            AdRequest.Builder().build(),
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    interstitialAd = ad
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    interstitialAd = null
+                    android.util.Log.w(TAG, "Interstitial ad failed to load: ${error.message}")
+                }
+            }
+        )
+    }
+
+    private fun maybeShowInterstitial() {
+        val now = System.currentTimeMillis()
+        val lastShown = getPreferences(MODE_PRIVATE).getLong(KEY_LAST_INTERSTITIAL, 0L)
+        val ad = interstitialAd
+        if (ad == null || now - lastShown < INTERSTITIAL_COOLDOWN_MILLIS) return
+
+        interstitialAd = null
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                loadInterstitialAd()
+            }
+
+            override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) {
+                android.util.Log.w(TAG, "Interstitial ad failed to show: ${error.message}")
+                loadInterstitialAd()
+            }
+        }
+        ad.show(this)
+        getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_INTERSTITIAL, now).apply()
+    }
+
+    private fun setCrosshairOverlay(enabled: Boolean, style: String, color: Int, size: Int): Boolean {
+        if (!enabled) {
+            startService(Intent(this, CrosshairOverlayService::class.java).setAction(CrosshairOverlayService.ACTION_STOP))
+            return true
+        }
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Allow PulsePing to display the crosshair over other apps.", Toast.LENGTH_LONG).show()
+            startActivity(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+            )
+            return false
+        }
+        return try {
+            startService(Intent(this, CrosshairOverlayService::class.java).apply {
+                putExtra(CrosshairOverlayService.EXTRA_STYLE, style)
+                putExtra(CrosshairOverlayService.EXTRA_COLOR, color)
+                putExtra(CrosshairOverlayService.EXTRA_SIZE, size)
+            })
+            true
+        } catch (exception: SecurityException) {
+            android.util.Log.e(TAG, "Unable to show crosshair overlay", exception)
+            Toast.makeText(this, "PulsePing could not show the crosshair overlay.", Toast.LENGTH_LONG).show()
+            false
         }
     }
 
@@ -198,7 +333,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startMonitorService(serviceIntent: Intent) {
         try {
-            startForegroundService(serviceIntent)
+            androidx.core.content.ContextCompat.startForegroundService(this, serviceIntent)
         } catch (exception: SecurityException) {
             showServiceStartError(exception)
         } catch (exception: IllegalStateException) {
@@ -222,8 +357,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun selectedTarget(): Pair<String, String>? {
         return when (targetSpinner.selectedItemPosition) {
-            0 -> "Cloudflare DNS" to "1.1.1.1"
-            1 -> "Google DNS" to "8.8.8.8"
+            0 -> "Free Fire Server" to "ff.garena.com"
+            1 -> "PUBG Mobile Node" to "sgp-1.valve.net"
+            2 -> "Hutch 4G/5G Stabilizer" to "1.1.1.1"
+            3 -> "Dialog 4G/5G Stabilizer" to "8.8.8.8"
+            4 -> "Mobitel 4G/5G Stabilizer" to "9.9.9.9"
             TARGET_CUSTOM -> {
                 val host = customHostInput.text.toString().trim().trimEnd('.')
                 val validHost = Patterns.DOMAIN_NAME.matcher(host).matches() ||
@@ -264,18 +402,40 @@ class MainActivity : AppCompatActivity() {
             else -> "●  PROBING"
         }
         serviceStatus.setTextColor(targetColor)
-        pingValue.text = ping ?: "--"
+        animatePingValue(ping)
         pingValue.setTextColor(targetColor)
         jitterValue.text = jitter?.let { "$it ms" } ?: "-- ms"
         lossValue.text = "${"%.1f".format(java.util.Locale.US, loss)}%"
         logText.text = log?.takeIf { it.isNotBlank() } ?: "Waiting for monitor to start..."
         powerButton.text = if (running) "STOP" else "START"
         powerButton.contentDescription = if (running) "Stop network monitoring" else "Start network monitoring"
-        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(targetColor), null, null)
+        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(Color.WHITE), null, null)
         pingGraph.setSamples(samples)
         alertBanner.text = if (ping == null) "HOST NOT RESPONDING" else "HIGH RESPONSE TIME"
         updateAlertBanner(signalDrop)
         animateSignalColor(targetColor)
+        pulseRadar.setActive(running && !paused)
+    }
+
+    private fun animatePingValue(ping: String?) {
+        if (ping == null) {
+            pingValue.text = "--"
+            lastAnimatedPing = null
+            return
+        }
+        if (lastAnimatedPing == ping) return
+        val destination = ping.toIntOrNull()
+        val start = lastAnimatedPing?.toIntOrNull()
+        lastAnimatedPing = ping
+        if (destination == null || start == null) {
+            pingValue.text = ping
+            return
+        }
+        ValueAnimator.ofInt(start, destination).apply {
+            duration = 320L
+            addUpdateListener { pingValue.text = (it.animatedValue as Int).toString() }
+            start()
+        }
     }
 
     private fun updateAlertBanner(signalDrop: Boolean) {
@@ -322,13 +482,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun applySignalColor(color: Int) {
         currentSignalColor = color
-        powerButton.setTextColor(color)
+        powerButton.setTextColor(Color.WHITE)
         powerButton.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(if (color == getColor(R.color.neon_green)) 0xFF071A12.toInt() else 0xFF1A080D.toInt())
             setStroke((3 * resources.displayMetrics.density).toInt(), color)
         }
         pingGraph.setSignalColor(color)
+        pulseRadar.setSignalColor(color)
         serviceStatus.setTextColor(color)
         serviceStatus.background = GradientDrawable().apply {
             setColor(getColor(R.color.surface))
@@ -336,7 +497,7 @@ class MainActivity : AppCompatActivity() {
             setStroke((1 * resources.displayMetrics.density).toInt(), color)
         }
         pingValue.setTextColor(color)
-        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(color), null, null)
+        powerButton.setCompoundDrawablesWithIntrinsicBounds(null, tintedHeartbeat(Color.WHITE), null, null)
     }
 
     @Suppress("DEPRECATION")
@@ -363,7 +524,14 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "PulsePing"
         private const val REQUEST_NOTIFICATIONS = 1001
-        private const val TARGET_CUSTOM = 2
+        private const val TARGET_CUSTOM = 5
+        private const val TAB_PINGER = 0
+        private const val TAB_SENSI = 1
+        private const val TAB_AIM = 2
+        private const val TAB_TOOLS = 3
+        private const val KEY_LAST_INTERSTITIAL = "last_interstitial_shown_at"
+        private const val INTERSTITIAL_COOLDOWN_MILLIS = 45_000L
+        private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/8691691433"
         private const val HIGH_PING_MILLIS = 220L
         private const val COLOR_TRANSITION_MILLIS = 260L
         private const val ALERT_FLASH_MILLIS = 450L

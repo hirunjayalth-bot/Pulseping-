@@ -285,19 +285,19 @@ class SuitePages(private val context: Context) {
         appendLine("Device: ${brandSpinner.selectedItem} · ${ramSpinner.selectedItem} · ${refreshSpinner.selectedItem}")
         appendLine("Playstyle: ${playstyleSpinner.selectedItem}")
         resultValues.forEach { (name, value) -> appendLine("$name: $value") }
-        appendLine(content(sensiPage).findViewWithTag<TextView>("DPI")?.text.orEmpty())
-        append(content(sensiPage).findViewWithTag<TextView>("FIRE")?.text.orEmpty())
+        appendLine(content(sensiPage).findViewWithTag<TextView>("DPI")?.text ?: "")
+        append(content(sensiPage).findViewWithTag<TextView>("FIRE")?.text ?: "")
     }
 
     private fun saveProfile(slot: Int) {
         context.getSharedPreferences(SENSI_PREFERENCES, Context.MODE_PRIVATE).edit()
-            .putBoolean("slot_$slot_saved", true)
-            .putInt("slot_$slot_game", selectedGameMode)
-            .putInt("slot_$slot_brand", brandSpinner.selectedItemPosition)
-            .putInt("slot_$slot_ram", ramSpinner.selectedItemPosition)
-            .putInt("slot_$slot_refresh", refreshSpinner.selectedItemPosition)
-            .putInt("slot_$slot_playstyle", playstyleSpinner.selectedItemPosition)
-            .putString("slot_$slot_tier", selectedTier)
+            .putBoolean("slot_${slot}_saved", true)
+            .putInt("slot_${slot}_game", selectedGameMode)
+            .putInt("slot_${slot}_brand", brandSpinner.selectedItemPosition)
+            .putInt("slot_${slot}_ram", ramSpinner.selectedItemPosition)
+            .putInt("slot_${slot}_refresh", refreshSpinner.selectedItemPosition)
+            .putInt("slot_${slot}_playstyle", playstyleSpinner.selectedItemPosition)
+            .putString("slot_${slot}_tier", selectedTier)
             .apply()
         toast("Profile saved to slot $slot")
     }

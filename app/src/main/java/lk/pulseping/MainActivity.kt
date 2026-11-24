@@ -26,13 +26,8 @@ import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.FullScreenContentCallback
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.interstitial.InterstitialAd
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.startapp.sdk.adsbase.StartAppAd
+import com.startapp.sdk.adsbase.StartAppSDK
 
 class MainActivity : AppCompatActivity() {
     private lateinit var preferences: SharedPreferences
@@ -48,10 +43,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var intervalSpinner: Spinner
     private lateinit var customHostInput: EditText
     private lateinit var pulseRadar: PulseRadarView
-    private lateinit var bannerAd: AdView
+    private lateinit var bannerAd: View
     private lateinit var tabContent: android.widget.FrameLayout
     private lateinit var suitePages: SuitePages
-    private var interstitialAd: InterstitialAd? = null
     private var selectedTab = TAB_PINGER
     private var lastAnimatedPing: String? = null
     private var currentSignalColor = Color.TRANSPARENT
@@ -71,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
+            StartAppSDK.initParams(this, START_APP_ID).setReturnAdsEnabled(false).init()
             setContentView(R.layout.activity_main)
 
             val rootContainer = findViewById<View>(R.id.rootContainer)
@@ -99,12 +94,11 @@ class MainActivity : AppCompatActivity() {
             intervalSpinner = findViewById(R.id.intervalSpinner)
             customHostInput = findViewById(R.id.customHostInput)
             pulseRadar = findViewById(R.id.pulseRadar)
-            bannerAd = findViewById(R.id.bannerAd)
+            bannerAd = findViewById(R.id.startAppBanner)
             tabContent = findViewById(R.id.tabContent)
 
             configureSpinners()
             configureBottomNavigation()
-            configureAds()
             powerButton.setOnClickListener {
                 it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
                 it.animate().scaleX(0.94f).scaleY(0.94f).setDuration(65L).withEndAction {
@@ -123,21 +117,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (screenInitialized) bannerAd.resume()
         if (screenInitialized) uiHandler.post(refreshTask)
     }
 
     override fun onPause() {
         uiHandler.removeCallbacks(refreshTask)
         if (screenInitialized) {
-            bannerAd.pause()
             pulseRadar.setActive(false)
         }
         super.onPause()
     }
 
     override fun onDestroy() {
-        if (::bannerAd.isInitialized) bannerAd.destroy()
         super.onDestroy()
     }
 
@@ -225,53 +216,16 @@ class MainActivity : AppCompatActivity() {
         }
         bannerAd.visibility = if (tab == TAB_PINGER) View.GONE else View.VISIBLE
 
-        if (tab != TAB_PINGER) maybeShowInterstitial()
-    }
-
-    private fun configureAds() {
-        MobileAds.initialize(this)
-        bannerAd.loadAd(AdRequest.Builder().build())
-        loadInterstitialAd()
-    }
-
-    private fun loadInterstitialAd() {
-        // TODO: Replace with real AdMob Interstitial Video Unit ID
-        InterstitialAd.load(
-            this,
-            TEST_INTERSTITIAL_AD_UNIT_ID,
-            AdRequest.Builder().build(),
-            object : InterstitialAdLoadCallback() {
-                override fun onAdLoaded(ad: InterstitialAd) {
-                    interstitialAd = ad
-                }
-
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    interstitialAd = null
-                    android.util.Log.w(TAG, "Interstitial ad failed to load: ${error.message}")
-                }
-            }
-        )
+        if (tab == TAB_SENSI || tab == TAB_TOOLS) maybeShowInterstitial()
     }
 
     private fun maybeShowInterstitial() {
         val now = System.currentTimeMillis()
-        val lastShown = getPreferences(MODE_PRIVATE).getLong(KEY_LAST_INTERSTITIAL, 0L)
-        val ad = interstitialAd
-        if (ad == null || now - lastShown < INTERSTITIAL_COOLDOWN_MILLIS) return
+        val lastShown = getPreferences(MODE_PRIVATE).getLong(KEY_LAST_START_APP_AD, 0L)
+        if (now - lastShown < INTERSTITIAL_COOLDOWN_MILLIS) return
 
-        interstitialAd = null
-        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() {
-                loadInterstitialAd()
-            }
-
-            override fun onAdFailedToShowFullScreenContent(error: com.google.android.gms.ads.AdError) {
-                android.util.Log.w(TAG, "Interstitial ad failed to show: ${error.message}")
-                loadInterstitialAd()
-            }
-        }
-        ad.show(this)
-        getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_INTERSTITIAL, now).apply()
+        StartAppAd.showAd(this)
+        getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_START_APP_AD, now).apply()
     }
 
     private fun toggleMonitor() {
@@ -509,9 +463,9 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_PINGER = 0
         private const val TAB_SENSI = 1
         private const val TAB_TOOLS = 2
-        private const val KEY_LAST_INTERSTITIAL = "last_interstitial_shown_at"
+        private const val START_APP_ID = "210661457"
+        private const val KEY_LAST_START_APP_AD = "last_start_app_ad_shown_at"
         private const val INTERSTITIAL_COOLDOWN_MILLIS = 45_000L
-        private const val TEST_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/8691691433"
         private const val HIGH_PING_MILLIS = 220L
         private const val COLOR_TRANSITION_MILLIS = 260L
         private const val ALERT_FLASH_MILLIS = 450L

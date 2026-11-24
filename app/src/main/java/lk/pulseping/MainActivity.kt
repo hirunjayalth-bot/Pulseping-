@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var customHostInput: EditText
     private lateinit var pulseRadar: PulseRadarView
     private lateinit var bannerAd: View
+    private lateinit var startAppAd: StartAppAd
     private lateinit var tabContent: android.widget.FrameLayout
     private lateinit var suitePages: SuitePages
     private var selectedTab = TAB_PINGER
@@ -66,6 +67,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             StartAppSDK.initParams(this, START_APP_ID).setReturnAdsEnabled(false).init()
+            StartAppSDK.setTestAdsEnabled(false)
+            startAppAd = StartAppAd(this)
+            startAppAd.loadAd()
             setContentView(R.layout.activity_main)
 
             val rootContainer = findViewById<View>(R.id.rootContainer)
@@ -179,7 +183,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configureBottomNavigation() {
-        bannerAd.visibility = View.GONE
         suitePages = SuitePages(this)
         tabContent.addView(suitePages.sensiPage)
         tabContent.addView(suitePages.toolsPage)
@@ -214,8 +217,6 @@ class MainActivity : AppCompatActivity() {
                 getColor(if (index == tab) R.color.crimson else R.color.text_secondary)
             )
         }
-        bannerAd.visibility = if (tab == TAB_PINGER) View.GONE else View.VISIBLE
-
         if (tab == TAB_SENSI || tab == TAB_TOOLS) maybeShowInterstitial()
     }
 
@@ -224,7 +225,8 @@ class MainActivity : AppCompatActivity() {
         val lastShown = getPreferences(MODE_PRIVATE).getLong(KEY_LAST_START_APP_AD, 0L)
         if (now - lastShown < INTERSTITIAL_COOLDOWN_MILLIS) return
 
-        StartAppAd.showAd(this)
+        startAppAd.showAd()
+        startAppAd.loadAd()
         getPreferences(MODE_PRIVATE).edit().putLong(KEY_LAST_START_APP_AD, now).apply()
     }
 

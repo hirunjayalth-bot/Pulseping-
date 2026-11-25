@@ -32,6 +32,7 @@ import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
 import com.unity3d.ads.UnityAdsShowOptions
+import com.unity3d.services.banners.BannerErrorInfo
 import com.unity3d.services.banners.BannerView
 import com.unity3d.services.banners.UnityBannerSize
 
@@ -128,6 +129,20 @@ class MainActivity : AppCompatActivity() {
                             "BP_Banner_Android",
                             UnityBannerSize(320, 50)
                         ).also { banner ->
+                            banner.listener = object : BannerView.Listener() {
+                                override fun onBannerFailedToLoad(
+                                    bannerAdView: BannerView,
+                                    errorInfo: BannerErrorInfo
+                                ) {
+                                    runOnUiThread {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Unity Ads banner failed to load: ${errorInfo.errorCode} - ${errorInfo.errorMessage}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }
+                            }
                             unityBannerContainer.addView(banner)
                             banner.load()
                         }
@@ -140,6 +155,13 @@ class MainActivity : AppCompatActivity() {
                     message: String
                 ) {
                     Log.e(TAG, "Unity Ads initialization failed: $error - $message")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Unity Ads initialization failed: $error - $message",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             })
         } catch (exception: RuntimeException) {
@@ -263,6 +285,13 @@ class MainActivity : AppCompatActivity() {
                     message: String
                 ) {
                     Log.e(TAG, "Unity Ads show failed for $placementId: $error - $message")
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Unity Ads show failed for $placementId: $error - $message",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                     loadInterstitial()
                 }
 
@@ -305,6 +334,11 @@ class MainActivity : AppCompatActivity() {
                     isInterstitialReady = false
                     isInterstitialLoading = false
                     Log.e(TAG, "Unity Ads load failed for $failedPlacementId: $error - $message")
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Unity Ads load failed for $failedPlacementId: $error - $message",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         })

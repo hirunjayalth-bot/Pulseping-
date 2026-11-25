@@ -32,7 +32,6 @@ import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
 import com.unity3d.ads.UnityAdsShowOptions
-import com.unity3d.services.banners.BannerErrorInfo
 import com.unity3d.services.banners.BannerView
 import com.unity3d.services.banners.UnityBannerSize
 
@@ -63,9 +62,6 @@ class MainActivity : AppCompatActivity() {
     private var screenInitialized = false
     private var isInterstitialReady = false
     private var isInterstitialLoading = false
-    private var interstitialPlacementIndex = 0
-    private var activeInterstitialId: String? = null
-    private var bannerPlacementIndex = 0
     private var lastAdShownTime = 0L
 
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -123,7 +119,29 @@ class MainActivity : AppCompatActivity() {
             }
             refreshMonitorState()
             screenInitialized = true
-            initializeUnityAds()
+            UnityAds.initialize(this, "800451143", false, object : IUnityAdsInitializationListener {
+                override fun onInitializationComplete() {
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        bannerView = BannerView(
+                            this@MainActivity,
+                            "BP_Banner_Android",
+                            UnityBannerSize(320, 50)
+                        ).also { banner ->
+                            unityBannerContainer.addView(banner)
+                            banner.load()
+                        }
+                        loadInterstitial()
+                    }
+                }
+
+                override fun onInitializationFailed(
+                    error: UnityAds.UnityAdsInitializationError,
+                    message: String
+                ) {
+                    Log.e(TAG, "Unity Ads initialization failed: $error - $message")
+                }
+            })
         } catch (exception: RuntimeException) {
             Log.e(TAG, "Unable to initialize the main screen", exception)
             Toast.makeText(this, "PulsePing could not start. Please reinstall the app.", Toast.LENGTH_LONG).show()
@@ -148,53 +166,6 @@ class MainActivity : AppCompatActivity() {
         bannerView?.destroy()
         bannerView = null
         super.onDestroy()
-    }
-
-    private fun initializeUnityAds() {
-        UnityAds.initialize(this, UNITY_GAME_ID, false, object : IUnityAdsInitializationListener {
-            override fun onInitializationComplete() {
-                runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-                    loadBanner(bannerPlacementIndex)
-                    loadNextInterstitial()
-                }
-            }
-
-            override fun onInitializationFailed(
-                error: UnityAds.UnityAdsInitializationError,
-                message: String
-            ) {
-                Log.e(TAG, "Unity Ads initialization failed: $error - $message")
-            }
-        })
-    }
-
-    private fun loadBanner(placementIndex: Int) {
-        if (placementIndex >= BANNER_PLACEMENT_IDS.size || isFinishing || isDestroyed) return
-        bannerPlacementIndex = placementIndex
-        val placementId = BANNER_PLACEMENT_IDS[placementIndex]
-        val banner = BannerView(this, placementId, UnityBannerSize(320, 50))
-        banner.setListener(object : BannerView.Listener() {
-            override fun onBannerFailedToLoad(bannerAdView: BannerView, errorInfo: BannerErrorInfo) {
-                runOnUiThread {
-                    if (bannerView !== bannerAdView) return@runOnUiThread
-                    Log.e(
-                        TAG,
-                        "Unity Ads banner load failed for $placementId: ${errorInfo.errorCode} - ${errorInfo.errorMessage}"
-                    )
-                    if (errorInfo.toLoadError() == UnityAds.UnityAdsLoadError.INVALID_ARGUMENT &&
-                        placementIndex + 1 < BANNER_PLACEMENT_IDS.size
-                    ) {
-                        bannerAdView.destroy()
-                        bannerView = null
-                        loadBanner(placementIndex + 1)
-                    }
-                }
-            }
-        })
-        bannerView = banner
-        unityBannerContainer.addView(banner)
-        banner.load()
     }
 
     private fun configureSpinners() {
@@ -284,16 +255,15 @@ class MainActivity : AppCompatActivity() {
     private fun maybeShowTabAd() {
         val now = System.currentTimeMillis()
         if (isInterstitialReady && now - lastAdShownTime >= INTERSTITIAL_COOLDOWN_MILLIS) {
-            val placementId = activeInterstitialId ?: return
             isInterstitialReady = false
-            UnityAds.show(this, placementId, UnityAdsShowOptions(), object : IUnityAdsShowListener {
+            UnityAds.show(this, "BP_Interstitial_Android", UnityAdsShowOptions(), object : IUnityAdsShowListener {
                 override fun onUnityAdsShowFailure(
                     placementId: String,
                     error: UnityAds.UnityAdsShowError,
                     message: String
                 ) {
                     Log.e(TAG, "Unity Ads show failed for $placementId: $error - $message")
-                    loadNextInterstitial()
+                    loadInterstitial()
                 }
 
                 override fun onUnityAdsShowStart(placementId: String) {
@@ -309,22 +279,18 @@ class MainActivity : AppCompatActivity() {
                     placementId: String,
                     state: UnityAds.UnityAdsShowCompletionState
                 ) {
-                    loadNextInterstitial()
+                    loadInterstitial()
                 }
             })
         }
     }
 
-    private fun loadNextInterstitial() {
-        if (isInterstitialReady || isInterstitialLoading ||
-            interstitialPlacementIndex >= INTERSTITIAL_PLACEMENT_IDS.size
-        ) return
-        val placementId = INTERSTITIAL_PLACEMENT_IDS[interstitialPlacementIndex]
+    private fun loadInterstitial() {
+        if (isInterstitialReady || isInterstitialLoading || isFinishing || isDestroyed) return
         isInterstitialLoading = true
-        UnityAds.load(placementId, object : IUnityAdsLoadListener {
+        UnityAds.load("BP_Interstitial_Android", object : IUnityAdsLoadListener {
             override fun onUnityAdsAdLoaded(loadedPlacementId: String) {
                 runOnUiThread {
-                    activeInterstitialId = loadedPlacementId
                     isInterstitialReady = true
                     isInterstitialLoading = false
                 }
@@ -339,12 +305,6 @@ class MainActivity : AppCompatActivity() {
                     isInterstitialReady = false
                     isInterstitialLoading = false
                     Log.e(TAG, "Unity Ads load failed for $failedPlacementId: $error - $message")
-                    if (error == UnityAds.UnityAdsLoadError.INVALID_ARGUMENT &&
-                        interstitialPlacementIndex + 1 < INTERSTITIAL_PLACEMENT_IDS.size
-                    ) {
-                        interstitialPlacementIndex++
-                        loadNextInterstitial()
-                    }
                 }
             }
         })
@@ -585,13 +545,6 @@ class MainActivity : AppCompatActivity() {
         private const val TAB_PINGER = 0
         private const val TAB_SENSI = 1
         private const val TAB_TOOLS = 2
-        private const val UNITY_GAME_ID = "800451143"
-        private val BANNER_PLACEMENT_IDS = listOf("Banner_Android", "Android_Banner", "banner")
-        private val INTERSTITIAL_PLACEMENT_IDS = listOf(
-            "Interstitial_Android",
-            "Android_Interstitial",
-            "video"
-        )
         private const val KEY_LAST_UNITY_AD = "last_unity_ad_shown_at"
         private const val INTERSTITIAL_COOLDOWN_MILLIS = 35_000L
         private const val HIGH_PING_MILLIS = 220L
